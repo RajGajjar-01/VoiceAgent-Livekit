@@ -27,23 +27,10 @@ uv sync
 
 ### Frontend
 
+Uses `pnpm` (not npm/yarn) — enforced via the `packageManager` field in `package.json`.
+
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
-
-## Environment variables
-
-Not finalized yet — will be documented here once the Google OAuth, database, and LiveKit configuration land.
-
-## Roadmap
-
-- [ ] Dev infra: Docker Compose (Postgres, pgAdmin, Redis)
-- [ ] Database models + Alembic migrations (users, tasks, calendar events)
-- [ ] Google OAuth login flow + JWT session
-- [ ] Task CRUD API
-- [ ] Frontend auth store, routing, and pages
-- [ ] LiveKit voice pipeline (STT → agent → TTS)
-- [ ] Agent actions: calendar booking, task management
-- [ ] Deployment

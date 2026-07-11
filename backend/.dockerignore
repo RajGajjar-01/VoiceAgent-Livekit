@@ -1,0 +1,28 @@
+# Tests are never shipped into the image
+tests/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# uv / venv
+.venv/
+
+# Env
+.env
+.env.*
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Docker/VCS metadata not needed inside the image
+.git
+.gitignore
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md
+.python-version
