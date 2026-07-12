@@ -56,15 +56,24 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
         return f"Marked '{done_task.title}' as done."
 
     @function_tool
-    async def book_calendar_event(title: str, start_time_iso: str, end_time_iso: str) -> str:
+    async def book_calendar_event(
+        title: str,
+        start_time_iso: str,
+        end_time_iso: str,
+        attendee_emails: list[str] | None = None,
+    ) -> str:
         """Book an event on the user's Google Calendar. Ask the user to
         clarify if the date, time, or duration is ambiguous rather than
-        guessing.
+        guessing. If the user wants to invite someone, always ask for that
+        person's email address before calling this tool — never guess or
+        make one up from just a name.
 
         Args:
             title: A short title for the event.
             start_time_iso: Start time as an ISO 8601 datetime with timezone offset.
             end_time_iso: End time as an ISO 8601 datetime with timezone offset.
+            attendee_emails: Email addresses of people to invite, if any.
+                Omit entirely if the user didn't ask to invite anyone.
         """
         try:
             start = datetime.fromisoformat(start_time_iso)
@@ -83,9 +92,12 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
                     end=end,
                     calendar_repo=calendar_repo,
                     user_repo=user_repo,
+                    attendee_emails=attendee_emails,
                 )
             except CalendarNotConnectedError:
                 return "Your Google Calendar isn't connected, so I can't book that. Please reconnect your account."
+        if attendee_emails:
+            return f"Booked '{event.title}' and invited {', '.join(attendee_emails)}."
         return f"Booked '{event.title}' on your calendar."
 
     return [list_tasks, create_task, complete_task, book_calendar_event]

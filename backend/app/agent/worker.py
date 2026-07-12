@@ -3,6 +3,11 @@ from datetime import datetime
 from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
 from livekit.plugins import deepgram, elevenlabs, openai, silero
 
+from app.agent.persistence import (
+    end_conversation,
+    register_persistence,
+    start_conversation,
+)
 from app.agent.prompts import build_system_prompt
 from app.agent.tools import build_tools
 from app.core.config import settings
@@ -17,6 +22,9 @@ async def entrypoint(ctx: JobContext) -> None:
     # receive that context at job start.
     user_id = ctx.room.name.removeprefix("assistant-")
 
+    conversation_id = await start_conversation(user_id, ctx.room.name)
+    ctx.add_shutdown_callback(lambda: end_conversation(conversation_id))
+
     tts = (
         elevenlabs.TTS(api_key=settings.ELEVENLABS_API_KEY, voice_id=settings.ELEVENLABS_VOICE_ID)
         if settings.ELEVENLABS_VOICE_ID
@@ -28,6 +36,7 @@ async def entrypoint(ctx: JobContext) -> None:
         tts=tts,
         vad=silero.VAD.load(),
     )
+    register_persistence(session, conversation_id)
     agent = Agent(instructions=build_system_prompt(datetime.now().astimezone()), tools=build_tools(user_id))
     await session.start(agent=agent, room=ctx.room)
 

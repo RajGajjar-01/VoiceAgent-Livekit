@@ -135,3 +135,56 @@ async def test_create_event_persists_google_event_id(monkeypatch: pytest.MonkeyP
 
     assert event.google_event_id == "google-event-abc"
     assert calendar_repo.created[0].title == "Team sync"
+
+
+async def test_create_event_includes_attendees_when_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = _make_user(
+        google_access_token=encrypt_token("cached-access-token"),
+        google_token_expiry=datetime.now(UTC) + timedelta(minutes=30),
+    )
+    user_repo = _FakeUserRepository(user)
+    calendar_repo = _FakeCalendarEventRepository()
+
+    async def fake_post(_access_token: str, payload: dict[str, object]) -> dict[str, object]:
+        assert payload["attendees"] == [{"email": "a@example.com"}, {"email": "b@example.com"}]
+        return {"id": "google-event-xyz"}
+
+    monkeypatch.setattr(calendar_service, "_post_calendar_event", fake_post)
+
+    start = datetime.now(UTC) + timedelta(days=1)
+    end = start + timedelta(hours=1)
+    await calendar_service.create_event(
+        user_id=str(user.id),
+        title="Planning",
+        start=start,
+        end=end,
+        calendar_repo=calendar_repo,  # type: ignore[arg-type]
+        user_repo=user_repo,  # type: ignore[arg-type]
+        attendee_emails=["a@example.com", "b@example.com"],
+    )
+
+
+async def test_create_event_omits_attendees_key_when_none_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    user = _make_user(
+        google_access_token=encrypt_token("cached-access-token"),
+        google_token_expiry=datetime.now(UTC) + timedelta(minutes=30),
+    )
+    user_repo = _FakeUserRepository(user)
+    calendar_repo = _FakeCalendarEventRepository()
+
+    async def fake_post(_access_token: str, payload: dict[str, object]) -> dict[str, object]:
+        assert "attendees" not in payload
+        return {"id": "google-event-no-attendees"}
+
+    monkeypatch.setattr(calendar_service, "_post_calendar_event", fake_post)
+
+    start = datetime.now(UTC) + timedelta(days=1)
+    end = start + timedelta(hours=1)
+    await calendar_service.create_event(
+        user_id=str(user.id),
+        title="Solo focus block",
+        start=start,
+        end=end,
+        calendar_repo=calendar_repo,  # type: ignore[arg-type]
+        user_repo=user_repo,  # type: ignore[arg-type]
+    )

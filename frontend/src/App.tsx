@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import LandingPage from '@/pages/Landing'
 import DashboardPage from '@/pages/Dashboard'
+import VoiceAssistantPage from '@/pages/VoiceAssistant'
 import NotFoundPage from '@/pages/NotFound'
 import { useAuthStore } from '@/stores/useAuthStore'
 
@@ -23,6 +24,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/voice" element={<VoiceAssistantPage />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />

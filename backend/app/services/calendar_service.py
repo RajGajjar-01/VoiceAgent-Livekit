@@ -11,7 +11,7 @@ from app.repositories.calendar_event_repository import CalendarEventRepository
 from app.repositories.user_repository import UserRepository
 
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-_CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/events"
+_CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 _EXPIRY_SKEW_SECONDS = 60
 
 
@@ -68,7 +68,6 @@ async def _post_calendar_event(access_token: str, payload: dict[str, Any]) -> di
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             _CALENDAR_EVENTS_URL,
-            params={"calendarId": "primary"},
             headers={"Authorization": f"Bearer {access_token}"},
             json=payload,
         )
@@ -83,17 +82,20 @@ async def create_event(
     end: datetime,
     calendar_repo: CalendarEventRepository,
     user_repo: UserRepository,
+    attendee_emails: list[str] | None = None,
 ) -> CalendarEvent:
     user = await user_repo.get_by_id(user_id)
     if user is None:
         raise ValueError(f"User {user_id} not found")
 
     access_token = await _ensure_valid_access_token(user, user_repo)
-    payload = {
+    payload: dict[str, Any] = {
         "summary": title,
         "start": {"dateTime": start.isoformat()},
         "end": {"dateTime": end.isoformat()},
     }
+    if attendee_emails:
+        payload["attendees"] = [{"email": email} for email in attendee_emails]
     event = await _post_calendar_event(access_token, payload)
     return await calendar_repo.create(
         user_id=user_id,

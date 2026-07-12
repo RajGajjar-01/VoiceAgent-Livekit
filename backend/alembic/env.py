@@ -12,7 +12,13 @@ from alembic import context
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import settings  # noqa: E402
-from app.models import calendar_event, task, user  # noqa: E402, F401
+from app.models import (  # noqa: E402, F401
+    calendar_event,
+    conversation,
+    conversation_message,
+    task,
+    user,
+)
 from app.models.base import Base  # noqa: E402
 
 # this is the Alembic Config object, which provides
