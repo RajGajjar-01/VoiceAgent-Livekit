@@ -18,23 +18,30 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
 
     @function_tool
     async def list_tasks() -> str:
-        """List the user's current tasks, including whether each is done."""
+        """List the user's current tasks, including status and estimated duration."""
         async with SessionLocal() as session:
             tasks = await TaskRepository(session).list_for_user(user_id)
         if not tasks:
             return "You have no tasks."
-        lines = [f"{t.title} ({'done' if t.done else 'not done'})" for t in tasks]
+        lines = []
+        for t in tasks:
+            parts = [t.title, f"({t.status}"]
+            if t.duration_minutes:
+                parts.append(f"{t.duration_minutes} min")
+            parts[-1] += ")"
+            lines.append(" ".join(parts))
         return "Your tasks: " + "; ".join(lines)
 
     @function_tool
-    async def create_task(title: str) -> str:
+    async def create_task(title: str, duration_minutes: int | None = None) -> str:
         """Create a new task.
 
         Args:
             title: A short title describing the task.
+            duration_minutes: Estimated time to complete, in minutes (optional).
         """
         async with SessionLocal() as session:
-            task = await TaskRepository(session).create(user_id=user_id, title=title)
+            task = await TaskRepository(session).create(user_id=user_id, title=title, duration_minutes=duration_minutes)
         return f"Added task: {task.title}"
 
     @function_tool
@@ -50,7 +57,7 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
             task = await repo.find_by_title(user_id, title)
             if task is None:
                 return f"I couldn't find a task matching '{title}'."
-            done_task = await repo.mark_done(str(task.id), user_id)
+            done_task = await repo.set_status(str(task.id), user_id, "completed")
         if done_task is None:
             return f"I couldn't find a task matching '{title}'."
         return f"Marked '{done_task.title}' as done."

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/sidebar'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/utils'
+import { useVoiceStore } from '@/stores/useVoiceStore'
 
 interface Conversation {
   id: string
@@ -21,10 +22,15 @@ interface Conversation {
 
 export default function ConversationsNavList() {
   const { conversationId } = useParams()
+  const status = useVoiceStore((s) => s.status)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Refetch whenever a call starts or ends, not just on mount — the
+    // sidebar stays mounted across route navigation, so the initial fetch
+    // alone would leave the list stale for the rest of the session.
+    if (status === 'connecting') return
     let cancelled = false
     void (async () => {
       try {
@@ -39,7 +45,7 @@ export default function ConversationsNavList() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [status])
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">

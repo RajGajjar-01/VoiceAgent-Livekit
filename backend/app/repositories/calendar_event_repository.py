@@ -36,3 +36,11 @@ class CalendarEventRepository(BaseRepository):
             select(CalendarEvent).where(CalendarEvent.user_id == user_id).order_by(CalendarEvent.start_time.asc())
         )
         return list(result.scalars().all())
+
+    async def delete(self, event_id: str, user_id: str) -> bool:
+        event = await self._session.get(CalendarEvent, event_id)
+        if event is None or str(event.user_id) != user_id:
+            return False
+        await self._session.delete(event)
+        await self._session.commit()
+        return True

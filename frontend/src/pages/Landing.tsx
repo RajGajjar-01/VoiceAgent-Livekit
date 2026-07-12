@@ -39,8 +39,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b border-border border-stone-400">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-8 border-x border-stone-400">
+      <div className="border-b border-border border-stone-300">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-8 border-x border-stone-300">
           <span className="font-heading text-lg font-semibold">Voice Agent</span>
           <Button variant="default" onClick={() => setOpen(true)}>
             Sign in
@@ -65,7 +65,7 @@ export default function LandingPage() {
 
       <div className="mx-auto max-w-7xl">
         <div className="relative">
-          <img src="/hero-bg.webp" alt="" className="h-auto w-full border-x border-stone-400" />
+          <img src="/hero-bg.webp" alt="" className="h-auto w-full border-x border-stone-300" />
 
           <div className="flex flex-col justify-center gap-6 p-6 md:absolute md:inset-0 md:p-14">
             <div className="max-w-lg">
@@ -83,8 +83,8 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <div className="border-y border-stone-400">
-        <div className="mx-auto max-w-7xl p-6 md:p-14 border-x border-stone-400">
+      <div className="border-y border-stone-300">
+        <div className="mx-auto max-w-7xl p-6 md:p-14 border-x border-stone-300">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <h2 className="font-heading text-4xl leading-tight font-semibold md:text-5xl">
               Tasks.
@@ -128,7 +128,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <footer className="border-stone-400 py-4 text-center text-xs text-muted-foreground border-x max-w-7xl mx-auto">
+      <footer className="border-stone-300 py-4 text-center text-xs text-muted-foreground border-x max-w-7xl mx-auto">
         &copy; {new Date().getFullYear()} Voice Agent. All rights reserved.
       </footer>
     </div>

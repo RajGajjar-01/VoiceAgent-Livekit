@@ -4,7 +4,8 @@ import { api } from '@/lib/api'
 export interface Task {
   id: string
   title: string
-  done: boolean
+  status: 'not_started' | 'in_progress' | 'completed'
+  duration_minutes: number | null
   created_at: string
 }
 
@@ -16,8 +17,9 @@ interface TaskState {
 
 interface TaskActions {
   list: () => Promise<void>
-  add: (title: string) => Promise<void>
-  toggleDone: (id: string) => Promise<void>
+  add: (title: string, durationMinutes?: number | null) => Promise<void>
+  setStatus: (id: string, status: string) => Promise<void>
+  remove: (id: string) => Promise<void>
 }
 
 export const useTaskStore = create<TaskState & TaskActions>((set, get) => ({
@@ -35,19 +37,27 @@ export const useTaskStore = create<TaskState & TaskActions>((set, get) => ({
     }
   },
 
-  add: async (title: string) => {
-    const res = await api.post<{ data: Task }>('/tasks', { title })
+  add: async (title: string, durationMinutes?: number | null) => {
+    const res = await api.post<{ data: Task }>('/tasks', { title, duration_minutes: durationMinutes ?? null })
     set({ tasks: [...get().tasks, res.data.data] })
   },
 
-  toggleDone: async (id: string) => {
-    const task = get().tasks.find((t) => t.id === id)
-    if (!task || task.done) return
-    set({ tasks: get().tasks.map((t) => (t.id === id ? { ...t, done: true } : t)) })
+  setStatus: async (id: string, status: string) => {
+    const prev = get().tasks.find((t) => t.id === id)
+    set({ tasks: get().tasks.map((t) => (t.id === id ? { ...t, status: status as Task['status'] } : t)) })
     try {
-      await api.patch<{ data: Task }>(`/tasks/${id}/done`)
+      await api.patch<{ data: Task }>(`/tasks/${id}/status`, { status })
     } catch {
-      set({ tasks: get().tasks.map((t) => (t.id === id ? { ...t, done: false } : t)) })
+      if (prev) set({ tasks: get().tasks.map((t) => (t.id === id ? prev : t)) })
+    }
+  },
+
+  remove: async (id: string) => {
+    set({ tasks: get().tasks.filter((t) => t.id !== id) })
+    try {
+      await api.delete(`/tasks/${id}`)
+    } catch {
+      set({ tasks: get().tasks })
     }
   },
 }))

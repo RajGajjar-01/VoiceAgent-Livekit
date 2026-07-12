@@ -5,8 +5,8 @@ from app.repositories.base import BaseRepository
 
 
 class TaskRepository(BaseRepository):
-    async def create(self, user_id: str, title: str) -> Task:
-        task = Task(user_id=user_id, title=title)
+    async def create(self, user_id: str, title: str, duration_minutes: int | None = None) -> Task:
+        task = Task(user_id=user_id, title=title, duration_minutes=duration_minutes)
         self._session.add(task)
         await self._session.commit()
         await self._session.refresh(task)
@@ -18,14 +18,22 @@ class TaskRepository(BaseRepository):
         )
         return list(result.scalars().all())
 
-    async def mark_done(self, task_id: str, user_id: str) -> Task | None:
+    async def set_status(self, task_id: str, user_id: str, status: str) -> Task | None:
         task = await self._session.get(Task, task_id)
         if task is None or str(task.user_id) != user_id:
             return None
-        task.done = True
+        task.status = status
         await self._session.commit()
         await self._session.refresh(task)
         return task
+
+    async def delete(self, task_id: str, user_id: str) -> bool:
+        task = await self._session.get(Task, task_id)
+        if task is None or str(task.user_id) != user_id:
+            return False
+        await self._session.delete(task)
+        await self._session.commit()
+        return True
 
     async def find_by_title(self, user_id: str, title: str) -> Task | None:
         """Case-insensitive substring match — a voice user can't supply a
@@ -35,6 +43,6 @@ class TaskRepository(BaseRepository):
         result = await self._session.execute(
             select(Task)
             .where(Task.user_id == user_id, Task.title.ilike(f"%{title}%"))
-            .order_by(Task.done.asc(), Task.created_at.desc())
+            .order_by(Task.status != "completed", Task.created_at.desc())
         )
         return result.scalars().first()

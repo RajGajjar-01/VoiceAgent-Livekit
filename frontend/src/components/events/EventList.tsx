@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
-import { CalendarClock, ExternalLink, Users } from 'lucide-react'
+import { CalendarClock, ExternalLink, Trash2, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/utils'
@@ -19,6 +28,19 @@ export default function EventList() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null)
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    const target = deleteTarget
+    setDeleteTarget(null)
+    setEvents((prev) => prev.filter((e) => e.id !== target.id))
+    try {
+      await api.delete(`/calendar/events/${target.id}`)
+    } catch {
+      setEvents((prev) => [...prev])
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -64,19 +86,28 @@ export default function EventList() {
         {!loading && !error && events.length > 0 && (
           <ul className="flex flex-col gap-4">
             {events.map((event) => (
-              <li key={event.id} className="flex flex-col gap-1.5 border-b pb-4 last:border-b-0 last:pb-0">
+              <li key={event.id} className="group flex flex-col gap-1.5 border-b pb-4 last:border-b-0 last:pb-0">
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-sm font-medium">{event.title}</span>
-                  {event.html_link && (
-                    <a
-                      href={event.html_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex shrink-0 items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+                  <div className="flex items-center gap-2">
+                    {event.html_link && (
+                      <a
+                        href={event.html_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex shrink-0 items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+                      >
+                        Open in Google Calendar <ExternalLink className="size-3" />
+                      </a>
+                    )}
+                    <button
+                      className="opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => setDeleteTarget(event)}
+                      aria-label={`Delete "${event.title}"`}
                     >
-                      Open in Google Calendar <ExternalLink className="size-3" />
-                    </a>
-                  )}
+                      <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
+                    </button>
+                  </div>
                 </div>
                 <span className="text-xs text-muted-foreground">
                   {formatDateTime(event.start_time)} – {formatDateTime(event.end_time)}
@@ -96,6 +127,25 @@ export default function EventList() {
           </ul>
         )}
       </CardContent>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete event</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void handleDelete()}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
