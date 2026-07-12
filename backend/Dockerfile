@@ -16,8 +16,7 @@ WORKDIR /app
 # so editing app code doesn't force a full dependency reinstall.
 # --no-dev: dev tooling (pytest, ruff, mypy) is never installed into the
 # image — tests are not run inside Docker, only in CI/local dev.
-RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
+RUN --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 
@@ -27,8 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
 # entirely via .dockerignore.
 COPY pyproject.toml uv.lock ./
 COPY app/ ./app
-RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache \
-    uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev
 
 # Runtime stage — no uv, no build tooling, no dependency cache, non-root user.
 FROM python:3.13-slim
