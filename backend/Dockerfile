@@ -16,15 +16,11 @@ WORKDIR /app
 # so editing app code doesn't force a full dependency reinstall.
 # --no-dev: dev tooling (pytest, ruff, mypy) is never installed into the
 # image — tests are not run inside Docker, only in CI/local dev.
-RUN --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
-
-# Now copy the actual source (plus the lockfile, this time for real —
-# the bind mounts above were only visible during that one RUN step) and
-# install the project itself. tests/ is excluded from the build context
-# entirely via .dockerignore.
 COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev
+
+# Now copy the actual source and install the project itself. tests/ is
+# excluded from the build context entirely via .dockerignore.
 COPY app/ ./app
 RUN uv sync --frozen --no-dev
 
