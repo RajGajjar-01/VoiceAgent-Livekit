@@ -32,6 +32,8 @@ RUN groupadd -r app && useradd -r -g app -d /app app
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app app/ ./app
+COPY --chown=app:app alembic.ini ./
+COPY --chown=app:app alembic/ ./alembic
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
@@ -43,4 +45,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/live')" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run pending migrations before serving — the "users"/etc. tables won't
+# exist on a fresh database otherwise. alembic tracks the applied revision,
+# so this is a no-op once the DB is up to date.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
