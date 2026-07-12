@@ -7,7 +7,7 @@ from app.core.config import settings
 
 def mint_token(user_id: str, display_name: str | None) -> tuple[str, str]:
     """Mints a LiveKit room-join token for the given user."""
-    
+
     room_name = f"assistant-{user_id}"
     token = (
         api.AccessToken(settings.LIVEKIT_API_KEY, settings.LIVEKIT_API_SECRET)

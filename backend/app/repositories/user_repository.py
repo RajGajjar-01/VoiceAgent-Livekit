@@ -41,3 +41,22 @@ class UserRepository(BaseRepository):
         await self._session.commit()
         await self._session.refresh(user)
         return user
+
+    async def update_google_tokens(
+        self,
+        user_id: str,
+        encrypted_access_token: str,
+        expiry: datetime,
+        encrypted_refresh_token: str | None = None,
+    ) -> None:
+        """Persists a refreshed Google access token independently of login.
+        upsert_from_google only runs at login time; the calendar token-refresh
+        flow needs to update just the token fields on an existing user."""
+        user = await self.get_by_id(user_id)
+        if user is None:
+            return
+        user.google_access_token = encrypted_access_token
+        user.google_token_expiry = expiry
+        if encrypted_refresh_token is not None:
+            user.google_refresh_token = encrypted_refresh_token
+        await self._session.commit()

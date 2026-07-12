@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
 from livekit.plugins import deepgram, elevenlabs, openai, silero
 
-from app.agent.prompts import SYSTEM_PROMPT
+from app.agent.prompts import build_system_prompt
+from app.agent.tools import build_tools
 from app.core.config import settings
 
 
@@ -12,7 +15,7 @@ async def entrypoint(ctx: JobContext) -> None:
     # this is how the worker learns which user it's serving, since it runs
     # outside FastAPI's request/response cycle and has no other channel to
     # receive that context at job start.
-    user_id = ctx.room.name.removeprefix("assistant-")  # noqa: F841 — wired into tools in a later step
+    user_id = ctx.room.name.removeprefix("assistant-")
 
     tts = (
         elevenlabs.TTS(api_key=settings.ELEVENLABS_API_KEY, voice_id=settings.ELEVENLABS_VOICE_ID)
@@ -25,7 +28,7 @@ async def entrypoint(ctx: JobContext) -> None:
         tts=tts,
         vad=silero.VAD.load(),
     )
-    agent = Agent(instructions=SYSTEM_PROMPT)
+    agent = Agent(instructions=build_system_prompt(datetime.now().astimezone()), tools=build_tools(user_id))
     await session.start(agent=agent, room=ctx.room)
 
 

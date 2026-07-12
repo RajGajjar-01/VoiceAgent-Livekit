@@ -26,3 +26,15 @@ class TaskRepository(BaseRepository):
         await self._session.commit()
         await self._session.refresh(task)
         return task
+
+    async def find_by_title(self, user_id: str, title: str) -> Task | None:
+        """Case-insensitive substring match — a voice user can't supply a
+        task id, and speech transcription rarely reproduces a title exactly.
+        Prefers not-done tasks, since "complete X" almost always means the
+        open task, not one already marked done."""
+        result = await self._session.execute(
+            select(Task)
+            .where(Task.user_id == user_id, Task.title.ilike(f"%{title}%"))
+            .order_by(Task.done.asc(), Task.created_at.desc())
+        )
+        return result.scalars().first()
