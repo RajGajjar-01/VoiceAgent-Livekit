@@ -1,3 +1,4 @@
+import structlog
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
@@ -9,6 +10,8 @@ from app.core.response import success_response
 from app.schemas.common import SuccessResponse
 from app.schemas.health import LivenessData, ReadinessData
 
+logger = structlog.get_logger()
+
 router = APIRouter(tags=["health"])
 
 
@@ -18,6 +21,7 @@ async def _check_postgres() -> str:
             await conn.execute(text("SELECT 1"))
         return "healthy"
     except Exception:
+        logger.warning("postgres_health_check_failed", exc_info=True)
         return "unhealthy"
 
 
@@ -27,6 +31,7 @@ async def _check_redis() -> str:
         await redis.ping()
         return "healthy"
     except Exception:
+        logger.warning("redis_health_check_failed", exc_info=True)
         return "unhealthy"
     finally:
         await redis.aclose()

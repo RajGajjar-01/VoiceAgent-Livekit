@@ -1,7 +1,12 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    ENVIRONMENT: Literal["development", "production"] = "development"
+    LOG_LEVEL: str = "INFO"
+
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_SERVER: str
@@ -16,6 +21,7 @@ class Settings(BaseSettings):
 
     JWT_SECRET: str
     JWT_EXPIRY_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRY_DAYS: int = 7
     REFRESH_TOKEN_ENCRYPTION_KEY: str
 
     FRONTEND_URL: str

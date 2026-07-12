@@ -1,5 +1,5 @@
 import time
-from typing import Any
+from typing import Any, Literal
 
 import jwt
 from cryptography.fernet import Fernet
@@ -11,13 +11,32 @@ from app.core.config import settings
 _ALGORITHM = "HS256"
 
 
-def create_session_token(user_id: str) -> str:
-    payload = {"sub": user_id, "exp": int(time.time()) + settings.JWT_EXPIRY_MINUTES * 60}
+def _create_token(user_id: str, token_type: Literal["access", "refresh"], expires_in_seconds: int) -> str:
+    payload = {"sub": user_id, "type": token_type, "exp": int(time.time()) + expires_in_seconds}
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=_ALGORITHM)
 
 
-def verify_session_token(token: str) -> dict[str, Any]:
-    return jwt.decode(token, settings.JWT_SECRET, algorithms=[_ALGORITHM])
+def _verify_token(token: str, expected_type: Literal["access", "refresh"]) -> dict[str, Any]:
+    payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[_ALGORITHM])
+    if payload.get("type") != expected_type:
+        raise jwt.InvalidTokenError(f"Expected a {expected_type} token")
+    return payload
+
+
+def create_access_token(user_id: str) -> str:
+    return _create_token(user_id, "access", settings.JWT_EXPIRY_MINUTES * 60)
+
+
+def verify_access_token(token: str) -> dict[str, Any]:
+    return _verify_token(token, "access")
+
+
+def create_refresh_token(user_id: str) -> str:
+    return _create_token(user_id, "refresh", settings.REFRESH_TOKEN_EXPIRY_DAYS * 86400)
+
+
+def verify_refresh_token(token: str) -> dict[str, Any]:
+    return _verify_token(token, "refresh")
 
 
 def verify_google_id_token(id_token_str: str) -> dict[str, Any]:

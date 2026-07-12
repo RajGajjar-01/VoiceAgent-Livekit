@@ -1,12 +1,12 @@
-import sys
-import traceback
-
+import structlog
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.response import error_response
+
+logger = structlog.get_logger()
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -37,5 +37,5 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    traceback.print_exc(file=sys.stderr)
+    logger.exception("unhandled_exception", path=request.url.path, method=request.method)
     return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Internal server error")

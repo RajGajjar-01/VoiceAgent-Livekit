@@ -5,7 +5,8 @@ import httpx
 
 from app.core.config import settings
 from app.core.security import (
-    create_session_token,
+    create_access_token,
+    create_refresh_token,
     encrypt_token,
     verify_google_id_token,
 )
@@ -30,7 +31,14 @@ def build_authorization_url(state: str) -> str:
     return f"{_GOOGLE_AUTH_URL}?{urlencode(params)}"
 
 
-async def complete_google_login(code: str, user_repo: UserRepository) -> tuple[User, str]:
+async def complete_google_login(code: str, user_repo: UserRepository) -> tuple[User, str, str]:
+    """Exchanges the OAuth code for Google tokens, upserts the user, and
+    mints our own access + refresh token pair for the session.
+
+    Returns (user, access_token, refresh_token) — the last two are ours,
+    unrelated to Google's own access/refresh tokens, which are encrypted
+    and stored on the user row instead of ever being sent to the browser.
+    """
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
             _GOOGLE_TOKEN_URL,
@@ -47,13 +55,13 @@ async def complete_google_login(code: str, user_repo: UserRepository) -> tuple[U
 
     id_payload = verify_google_id_token(tokens["id_token"])
 
-    refresh_token = tokens.get("refresh_token")
-    encrypted_refresh_token = encrypt_token(refresh_token) if refresh_token else None
+    google_refresh_token = tokens.get("refresh_token")
+    encrypted_google_refresh_token = encrypt_token(google_refresh_token) if google_refresh_token else None
 
-    access_token = tokens.get("access_token")
-    encrypted_access_token = encrypt_token(access_token) if access_token else None
+    google_access_token = tokens.get("access_token")
+    encrypted_google_access_token = encrypt_token(google_access_token) if google_access_token else None
     expires_in = tokens.get("expires_in")
-    access_token_expiry = (
+    google_access_token_expiry = (
         datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in is not None else None
     )
 
@@ -62,10 +70,11 @@ async def complete_google_login(code: str, user_repo: UserRepository) -> tuple[U
         email=id_payload["email"],
         name=id_payload.get("name"),
         avatar_url=id_payload.get("picture"),
-        encrypted_refresh_token=encrypted_refresh_token,
-        encrypted_access_token=encrypted_access_token,
-        access_token_expiry=access_token_expiry,
+        encrypted_refresh_token=encrypted_google_refresh_token,
+        encrypted_access_token=encrypted_google_access_token,
+        access_token_expiry=google_access_token_expiry,
     )
 
-    session_token = create_session_token(user_id=str(user.id))
-    return user, session_token
+    access_token = create_access_token(user_id=str(user.id))
+    refresh_token = create_refresh_token(user_id=str(user.id))
+    return user, access_token, refresh_token
