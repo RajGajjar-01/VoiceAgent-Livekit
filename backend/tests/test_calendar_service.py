@@ -53,6 +53,8 @@ class _FakeCalendarEventRepository:
         title: str,
         start_time: datetime,
         end_time: datetime,
+        html_link: str | None = None,
+        attendees: list[str] | None = None,
     ) -> SimpleNamespace:
         event = SimpleNamespace(
             id=uuid4(),
@@ -61,6 +63,8 @@ class _FakeCalendarEventRepository:
             title=title,
             start_time=start_time,
             end_time=end_time,
+            html_link=html_link,
+            attendees=attendees,
         )
         self.created.append(event)
         return event

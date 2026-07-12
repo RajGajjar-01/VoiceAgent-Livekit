@@ -7,11 +7,15 @@ class Settings(BaseSettings):
     ENVIRONMENT: Literal["development", "production"] = "development"
     LOG_LEVEL: str = "INFO"
 
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_SERVER: str
+    # Set DATABASE_URL directly (e.g. Railway's managed Postgres plugin), or
+    # leave it unset and provide the discrete POSTGRES_* vars instead (used
+    # for local dev via docker-compose).
+    DATABASE_URL: str | None = None
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: str | None = None
+    POSTGRES_SERVER: str | None = None
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str
+    POSTGRES_DB: str | None = None
 
     REDIS_URL: str
 
@@ -48,6 +52,18 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.DATABASE_URL:
+            # Railway (and most managed providers) hand out postgres:// or
+            # postgresql:// URLs; SQLAlchemy's async engine needs the
+            # +asyncpg driver in the scheme.
+            return self.DATABASE_URL.replace("postgres://", "postgresql://", 1).replace(
+                "postgresql://", "postgresql+asyncpg://", 1
+            )
+        if not (self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_SERVER and self.POSTGRES_DB):
+            raise ValueError(
+                "Set DATABASE_URL, or all of POSTGRES_USER/POSTGRES_PASSWORD/"
+                "POSTGRES_SERVER/POSTGRES_DB"
+            )
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

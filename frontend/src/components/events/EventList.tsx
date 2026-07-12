@@ -1,0 +1,101 @@
+import { useEffect, useState } from 'react'
+import { CalendarClock, ExternalLink, Users } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { api } from '@/lib/api'
+import { formatDateTime } from '@/lib/utils'
+
+interface CalendarEvent {
+  id: string
+  title: string
+  start_time: string
+  end_time: string
+  html_link: string | null
+  attendees: string[]
+}
+
+export default function EventList() {
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await api.get<{ data: CalendarEvent[] }>('/calendar/events')
+        if (cancelled) return
+        const now = Date.now()
+        const upcoming = res.data.data.filter((e) => new Date(e.start_time).getTime() >= now)
+        setEvents(upcoming)
+      } catch {
+        if (!cancelled) setError('Failed to load calendar events')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CalendarClock className="size-4" /> Upcoming events
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {loading && (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-2/3" />
+          </div>
+        )}
+
+        {!loading && error && <p className="text-sm text-destructive">{error}</p>}
+
+        {!loading && !error && events.length === 0 && (
+          <p className="text-sm text-muted-foreground">No upcoming events.</p>
+        )}
+
+        {!loading && !error && events.length > 0 && (
+          <ul className="flex flex-col gap-4">
+            {events.map((event) => (
+              <li key={event.id} className="flex flex-col gap-1.5 border-b pb-4 last:border-b-0 last:pb-0">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-sm font-medium">{event.title}</span>
+                  {event.html_link && (
+                    <a
+                      href={event.html_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex shrink-0 items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+                    >
+                      Open in Google Calendar <ExternalLink className="size-3" />
+                    </a>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {formatDateTime(event.start_time)} – {formatDateTime(event.end_time)}
+                </span>
+                {event.attendees.length > 0 && (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <Users className="size-3.5 text-muted-foreground" />
+                    {event.attendees.map((email) => (
+                      <Badge key={email} variant="secondary">
+                        {email}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}

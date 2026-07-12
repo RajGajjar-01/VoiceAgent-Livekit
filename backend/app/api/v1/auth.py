@@ -86,7 +86,7 @@ async def google_callback(
         return RedirectResponse(f"{settings.FRONTEND_URL}/?error=token_exchange_failed")
 
     logger.info("google_login_completed", user_id=str(user.id))
-    resp = RedirectResponse(f"{settings.FRONTEND_URL}/dashboard")
+    resp = RedirectResponse(f"{settings.FRONTEND_URL}/voice")
     _set_access_token_cookie(resp, access_token)
     _set_refresh_token_cookie(resp, refresh_token)
     resp.delete_cookie("oauth_state")

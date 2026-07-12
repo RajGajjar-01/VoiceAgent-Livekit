@@ -14,6 +14,8 @@ class CalendarEventRepository(BaseRepository):
         title: str,
         start_time: datetime,
         end_time: datetime,
+        html_link: str | None = None,
+        attendees: list[str] | None = None,
     ) -> CalendarEvent:
         event = CalendarEvent(
             user_id=user_id,
@@ -21,6 +23,8 @@ class CalendarEventRepository(BaseRepository):
             title=title,
             start_time=start_time,
             end_time=end_time,
+            html_link=html_link,
+            attendees=attendees,
         )
         self._session.add(event)
         await self._session.commit()

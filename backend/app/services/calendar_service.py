@@ -97,10 +97,13 @@ async def create_event(
     if attendee_emails:
         payload["attendees"] = [{"email": email} for email in attendee_emails]
     event = await _post_calendar_event(access_token, payload)
+    response_attendees = [a["email"] for a in event.get("attendees", []) if "email" in a]
     return await calendar_repo.create(
         user_id=user_id,
         google_event_id=str(event["id"]),
         title=title,
         start_time=start,
         end_time=end,
+        html_link=event.get("htmlLink"),
+        attendees=response_attendees or None,
     )

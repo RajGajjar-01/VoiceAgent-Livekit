@@ -1,37 +1,16 @@
-import { NavLink, Outlet } from 'react-router'
-import { Button } from '@/components/ui/button'
-import { useAuth } from '@/hooks/useAuth'
-
-const navLinkClassName = ({ isActive }: { isActive: boolean }) =>
-  `text-sm ${isActive ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'}`
+import { Outlet } from 'react-router'
+import AppSidebar from '@/components/AppSidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 
 export default function DashboardLayout() {
-  const { user, logout } = useAuth()
-
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex items-center gap-6">
-          <span className="font-semibold">Voice Agent</span>
-          <nav className="flex items-center gap-4">
-            <NavLink to="/dashboard" className={navLinkClassName}>
-              Dashboard
-            </NavLink>
-            <NavLink to="/voice" className={navLinkClassName}>
-              Voice Assistant
-            </NavLink>
-          </nav>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <div className="flex flex-1 flex-col p-6">
+          <Outlet />
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">{user?.email}</span>
-          <Button variant="outline" size="sm" onClick={() => logout()}>
-            Log out
-          </Button>
-        </div>
-      </header>
-      <main className="p-6">
-        <Outlet />
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import verify_access_token
 from app.repositories.calendar_event_repository import CalendarEventRepository
+from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
 
@@ -38,3 +39,7 @@ async def get_task_repository(db: AsyncSession = Depends(get_db)) -> AsyncGenera
 
 async def get_calendar_event_repository(db: AsyncSession = Depends(get_db)) -> AsyncGenerator[CalendarEventRepository]:
     yield CalendarEventRepository(db)
+
+
+async def get_conversation_repository(db: AsyncSession = Depends(get_db)) -> AsyncGenerator[ConversationRepository]:
+    yield ConversationRepository(db)

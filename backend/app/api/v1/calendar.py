@@ -19,7 +19,13 @@ async def list_calendar_events(
     return success_response(
         [
             CalendarEventResponse(
-                id=str(e.id), title=e.title, start_time=e.start_time, end_time=e.end_time, created_at=e.created_at
+                id=str(e.id),
+                title=e.title,
+                start_time=e.start_time,
+                end_time=e.end_time,
+                created_at=e.created_at,
+                html_link=e.html_link,
+                attendees=e.attendees or [],
             ).model_dump()
             for e in events
         ]
