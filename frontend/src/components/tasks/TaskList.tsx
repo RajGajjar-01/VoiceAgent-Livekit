@@ -117,7 +117,9 @@ export default function TaskList() {
                   <TableCell>
                     <Select
                       value={task.status}
-                      onValueChange={(val) => void setStatus(task.id, val)}
+                      onValueChange={(val) => {
+                        if (val) void setStatus(task.id, val)
+                      }}
                     >
                       <SelectTrigger size="sm" className="border-none p-0 shadow-none hover:bg-transparent focus-visible:ring-0">
                         <Badge className={STATUS_CONFIG[task.status]?.className}>

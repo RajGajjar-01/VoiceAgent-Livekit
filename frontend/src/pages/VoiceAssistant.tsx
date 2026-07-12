@@ -57,9 +57,6 @@ export default function VoiceAssistantPage() {
       ) : (
         <div className="flex flex-1 flex-col gap-4">
           <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
-            {transcript.length === 0 && (
-              <p className="text-sm text-muted-foreground">Transcript will appear here once you start talking.</p>
-            )}
             {transcript.map((entry) => (
               <div
                 key={entry.id}

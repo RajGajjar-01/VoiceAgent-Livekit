@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.core.dependencies import get_current_user_id, get_task_repository
 from app.core.response import error_response, success_response
@@ -68,4 +68,4 @@ async def delete_task(
     deleted = await task_repo.delete(task_id, user_id)
     if not deleted:
         return error_response(404, "TASK_NOT_FOUND", "Task not found")
-    return JSONResponse(status_code=204, content=None)
+    return Response(status_code=204)

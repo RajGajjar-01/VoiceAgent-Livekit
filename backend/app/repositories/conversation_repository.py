@@ -35,6 +35,14 @@ class ConversationRepository(BaseRepository):
         )
         return list(result.scalars().all())
 
+    async def delete(self, conversation_id: str, user_id: str) -> bool:
+        conversation = await self._session.get(Conversation, conversation_id)
+        if conversation is None or str(conversation.user_id) != user_id:
+            return False
+        await self._session.delete(conversation)
+        await self._session.commit()
+        return True
+
     async def get_messages(self, conversation_id: str, user_id: str) -> list[ConversationMessage] | None:
         conversation = await self._session.get(Conversation, conversation_id)
         if conversation is None or str(conversation.user_id) != user_id:

@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
     LLM_MODEL: str = "llama-3.3-70b-versatile"
 
+    # Fallback LLM, used via FallbackAdapter when the primary provider errors
+    # (e.g. Groq's free-tier rate limits). Optional — if either is unset, the
+    # worker runs with just the primary LLM and no fallback.
+    CLOUDFLARE_ACCOUNT_ID: str | None = None
+    CLOUDFLARE_API_KEY: str | None = None
+    FALLBACK_LLM_MODEL: str = "@cf/moonshotai/kimi-k2.7-code"
+
     ELEVENLABS_API_KEY: str
     ELEVENLABS_VOICE_ID: str | None = None
 

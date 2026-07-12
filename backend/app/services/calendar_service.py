@@ -107,3 +107,40 @@ async def create_event(
         html_link=event.get("htmlLink"),
         attendees=response_attendees or None,
     )
+
+
+async def add_attendees(
+    user_id: str,
+    event_id: str,
+    attendee_emails: list[str],
+    calendar_repo: CalendarEventRepository,
+    user_repo: UserRepository,
+) -> CalendarEvent:
+    user = await user_repo.get_by_id(user_id)
+    if user is None:
+        raise ValueError(f"User {user_id} not found")
+
+    event = await calendar_repo.get(event_id)
+    if event is None or str(event.user_id) != user_id:
+        raise ValueError(f"Event {event_id} not found for user {user_id}")
+
+    access_token = await _ensure_valid_access_token(user, user_repo)
+    google_url = f"https://www.googleapis.com/calendar/v3/calendars/primary/events/{event.google_event_id}"
+    existing_attendees = [{"email": e} for e in (event.attendees or [])]
+    new_attendees = [{"email": e} for e in attendee_emails if e not in (event.attendees or [])]
+    updated_attendees = existing_attendees + new_attendees
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.patch(
+            google_url,
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"attendees": updated_attendees},
+        )
+    resp.raise_for_status()
+    google_data = dict(resp.json())
+    response_attendees = [a["email"] for a in google_data.get("attendees", []) if "email" in a]
+
+    updated_event = await calendar_repo.update_attendees(event_id, response_attendees)
+    if updated_event is None:
+        raise RuntimeError(f"Failed to update attendees for event {event_id}")
+    return updated_event

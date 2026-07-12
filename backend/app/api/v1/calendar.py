@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.core.dependencies import get_calendar_event_repository, get_current_user_id
 from app.core.response import error_response, success_response
@@ -45,4 +45,4 @@ async def delete_calendar_event(
     deleted = await calendar_repo.delete(event_id, user_id)
     if not deleted:
         return error_response(404, "EVENT_NOT_FOUND", "Event not found")
-    return JSONResponse(status_code=204, content=None)
+    return Response(status_code=204)
