@@ -11,12 +11,12 @@ from app.core.config import settings
 _ALGORITHM = "HS256"
 
 
-def create_access_token(user_id: str) -> str:
+def create_session_token(user_id: str) -> str:
     payload = {"sub": user_id, "exp": int(time.time()) + settings.JWT_EXPIRY_MINUTES * 60}
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=_ALGORITHM)
 
 
-def verify_access_token(token: str) -> dict[str, Any]:
+def verify_session_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.JWT_SECRET, algorithms=[_ALGORITHM])
 
 

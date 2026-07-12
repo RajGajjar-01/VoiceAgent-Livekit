@@ -4,20 +4,20 @@ import jwt
 import pytest
 
 from app.core.security import (
-    create_access_token,
+    create_session_token,
     decrypt_token,
     encrypt_token,
-    verify_access_token,
+    verify_session_token,
 )
 
 
-def test_create_and_verify_access_token_round_trip() -> None:
-    token = create_access_token(user_id="abc-123")
-    payload = verify_access_token(token)
+def test_create_and_verify_session_token_round_trip() -> None:
+    token = create_session_token(user_id="abc-123")
+    payload = verify_session_token(token)
     assert payload["sub"] == "abc-123"
 
 
-def test_verify_access_token_rejects_expired_token() -> None:
+def test_verify_session_token_rejects_expired_token() -> None:
     from app.core.config import settings
 
     expired = jwt.encode(
@@ -26,13 +26,13 @@ def test_verify_access_token_rejects_expired_token() -> None:
         algorithm="HS256",
     )
     with pytest.raises(jwt.PyJWTError):
-        verify_access_token(expired)
+        verify_session_token(expired)
 
 
-def test_verify_access_token_rejects_bad_signature() -> None:
+def test_verify_session_token_rejects_bad_signature() -> None:
     token = jwt.encode({"sub": "abc-123", "exp": int(time.time()) + 60}, "wrong-secret", algorithm="HS256")
     with pytest.raises(jwt.PyJWTError):
-        verify_access_token(token)
+        verify_session_token(token)
 
 
 def test_encrypt_decrypt_token_round_trip() -> None:
