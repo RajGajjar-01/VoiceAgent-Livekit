@@ -28,6 +28,22 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str]
     COOKIE_SECURE: bool = False
 
+    LIVEKIT_URL: str
+    LIVEKIT_API_KEY: str
+    LIVEKIT_API_SECRET: str
+
+    DEEPGRAM_API_KEY: str
+
+    # Generic LLM_* names (not GROQ_*) so swapping providers is an .env
+    # change, not a code change — LLM_BASE_URL just needs to point at any
+    # OpenAI-compatible chat completions endpoint.
+    LLM_API_KEY: str
+    LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
+    LLM_MODEL: str = "llama-3.3-70b-versatile"
+
+    ELEVENLABS_API_KEY: str
+    ELEVENLABS_VOICE_ID: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
 
     @property

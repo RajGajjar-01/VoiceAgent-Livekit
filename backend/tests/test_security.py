@@ -86,7 +86,7 @@ def test_verify_google_id_token_returns_payload_on_valid_token(monkeypatch: pyte
 
     assert result == fake_payload
     assert seen["id_token_str"] == "fake-id-token"
-    assert seen["audience"] == security.settings.GOOGLE_CLIENT_ID
+    assert seen["audience"] == settings.GOOGLE_CLIENT_ID
 
 
 def test_verify_google_id_token_propagates_verification_errors(monkeypatch: pytest.MonkeyPatch) -> None:
