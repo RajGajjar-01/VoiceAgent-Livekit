@@ -1,8 +1,8 @@
 import secrets
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user_id, get_user_repository
@@ -65,7 +65,7 @@ async def google_callback(
 
 
 @router.post("/logout", responses={200: {"model": SuccessResponse[MessageResponse]}})
-async def logout() -> Response:
+async def logout() -> JSONResponse:
     resp = success_response({"message": "Logged out"})
     resp.delete_cookie("session_token", httponly=True, secure=settings.COOKIE_SECURE, samesite=_samesite())
     return resp
@@ -81,7 +81,7 @@ async def logout() -> Response:
 async def get_me(
     user_id: str = Depends(get_current_user_id),
     user_repo: UserRepository = Depends(get_user_repository),
-) -> Response:
+) -> JSONResponse:
     user = await user_repo.get_by_id(user_id)
     if user is None:
         return error_response(404, "USER_NOT_FOUND", "User not found")
