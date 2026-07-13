@@ -109,6 +109,64 @@ async def create_event(
     )
 
 
+async def reschedule_event(
+    user_id: str,
+    event_id: str,
+    start: datetime,
+    end: datetime,
+    calendar_repo: CalendarEventRepository,
+    user_repo: UserRepository,
+) -> CalendarEvent:
+    user = await user_repo.get_by_id(user_id)
+    if user is None:
+        raise ValueError(f"User {user_id} not found")
+
+    event = await calendar_repo.get(event_id)
+    if event is None or str(event.user_id) != user_id:
+        raise ValueError(f"Event {event_id} not found for user {user_id}")
+
+    access_token = await _ensure_valid_access_token(user, user_repo)
+    google_url = f"{_CALENDAR_EVENTS_URL}/{event.google_event_id}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.patch(
+            google_url,
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"start": {"dateTime": start.isoformat()}, "end": {"dateTime": end.isoformat()}},
+        )
+    resp.raise_for_status()
+
+    updated_event = await calendar_repo.update_time(event_id, start, end)
+    if updated_event is None:
+        raise RuntimeError(f"Failed to update time for event {event_id}")
+    return updated_event
+
+
+async def delete_event(
+    user_id: str,
+    event_id: str,
+    calendar_repo: CalendarEventRepository,
+    user_repo: UserRepository,
+) -> None:
+    user = await user_repo.get_by_id(user_id)
+    if user is None:
+        raise ValueError(f"User {user_id} not found")
+
+    event = await calendar_repo.get(event_id)
+    if event is None or str(event.user_id) != user_id:
+        raise ValueError(f"Event {event_id} not found for user {user_id}")
+
+    access_token = await _ensure_valid_access_token(user, user_repo)
+    google_url = f"{_CALENDAR_EVENTS_URL}/{event.google_event_id}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.delete(google_url, headers={"Authorization": f"Bearer {access_token}"})
+    if resp.status_code not in (200, 204, 404):
+        resp.raise_for_status()
+
+    deleted = await calendar_repo.delete(event_id, user_id)
+    if not deleted:
+        raise RuntimeError(f"Failed to delete event {event_id}")
+
+
 async def add_attendees(
     user_id: str,
     event_id: str,

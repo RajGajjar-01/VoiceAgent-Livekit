@@ -3,11 +3,24 @@ from datetime import date, datetime
 from livekit.agents.llm import Tool, Toolset, function_tool
 
 from app.core.database import SessionLocal
+from app.models.calendar_event import CalendarEvent
 from app.repositories.calendar_event_repository import CalendarEventRepository
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
 from app.services import calendar_service
 from app.services.calendar_service import CalendarNotConnectedError
+
+
+async def _find_event(calendar_repo: CalendarEventRepository, user_id: str, title: str) -> CalendarEvent | None:
+    """Matches an existing event by title — voice users can't supply an event
+    id, and spoken titles rarely come through transcription exactly. Prefers
+    an exact (case-insensitive) match, falling back to substring, and picks
+    the most recently created match when several fit."""
+    events = await calendar_repo.list_for_user(user_id)
+    matches = [e for e in events if e.title.lower() == title.lower()]
+    if not matches:
+        matches = [e for e in events if title.lower() in e.title.lower()]
+    return matches[-1] if matches else None
 
 
 def build_tools(user_id: str) -> list[Tool | Toolset]:
@@ -62,6 +75,34 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
         if done_task is None:
             return f"I couldn't find a task matching '{title}'."
         return f"Marked '{done_task.title}' as done."
+
+    @function_tool
+    async def edit_task(title: str, new_title: str | None = None, new_duration_minutes: int | None = None) -> str:
+        """Edit an existing task's title and/or estimated duration, matching
+        the task by its current title. Omit whichever field the user did not
+        ask to change.
+
+        Args:
+            title: The task's current title, or a close match — spoken titles
+                rarely come through transcription exactly.
+            new_title: The new title, if the user wants to rename the task.
+            new_duration_minutes: The new estimated duration in minutes, if
+                the user wants to change it.
+        """
+        if new_title is None and new_duration_minutes is None:
+            return "I need something to change — a new title or a new duration."
+        async with SessionLocal() as session:
+            repo = TaskRepository(session)
+            task = await repo.find_by_title(user_id, title)
+            if task is None:
+                return f"I couldn't find a task matching '{title}'."
+            updated = await repo.update(
+                str(task.id), user_id, title=new_title, duration_minutes=new_duration_minutes
+            )
+        if updated is None:
+            return f"I couldn't find a task matching '{title}'."
+        suffix = f" ({updated.duration_minutes} min)" if updated.duration_minutes else ""
+        return f"Updated task: {updated.title}{suffix}"
 
     @function_tool
     async def delete_task(title: str) -> str:
@@ -175,14 +216,10 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
         async with SessionLocal() as session:
             calendar_repo = CalendarEventRepository(session)
             user_repo = UserRepository(session)
-            events = await calendar_repo.list_for_user(user_id)
-            matches = [e for e in events if e.title.lower() == event_title.lower()]
-            if not matches:
-                matches = [e for e in events if event_title.lower() in e.title.lower()]
-            if not matches:
+            event = await _find_event(calendar_repo, user_id, event_title)
+            if event is None:
                 return f"I couldn't find an existing event matching '{event_title}'."
 
-            event = matches[-1]
             try:
                 updated = await calendar_service.add_attendees(
                     user_id=user_id,
@@ -227,4 +264,84 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
             lines.append(" ".join(parts))
         return f"Your schedule for {day}: " + "; ".join(lines)
 
-    return [list_tasks, create_task, complete_task, delete_task, book_calendar_event, add_event_attendees, list_schedule]
+    @function_tool
+    async def reschedule_calendar_event(event_title: str, new_start_time_iso: str, new_end_time_iso: str) -> str:
+        """Reschedule an existing calendar event to a new time, matching it
+        by title. Ask the user to clarify if the new date or time is
+        ambiguous rather than guessing.
+
+        Args:
+            event_title: The title of the existing event to reschedule.
+            new_start_time_iso: New start time as an ISO 8601 datetime with timezone offset.
+            new_end_time_iso: New end time as an ISO 8601 datetime with timezone offset.
+        """
+        try:
+            new_start = datetime.fromisoformat(new_start_time_iso)
+            new_end = datetime.fromisoformat(new_end_time_iso)
+        except ValueError:
+            return "I couldn't understand those times — could you repeat them?"
+
+        async with SessionLocal() as session:
+            calendar_repo = CalendarEventRepository(session)
+            user_repo = UserRepository(session)
+            event = await _find_event(calendar_repo, user_id, event_title)
+            if event is None:
+                return f"I couldn't find an existing event matching '{event_title}'."
+
+            overlapping = await calendar_repo.find_overlapping(user_id, new_start, new_end)
+            if overlapping is not None and str(overlapping.id) != str(event.id):
+                return (
+                    f"You already have '{overlapping.title}' on your calendar at that time "
+                    f"— I can't reschedule '{event.title}' without overlapping."
+                )
+
+            try:
+                updated = await calendar_service.reschedule_event(
+                    user_id=user_id,
+                    event_id=str(event.id),
+                    start=new_start,
+                    end=new_end,
+                    calendar_repo=calendar_repo,
+                    user_repo=user_repo,
+                )
+            except CalendarNotConnectedError:
+                return "Your Google Calendar isn't connected, so I can't reschedule that."
+        return f"Rescheduled '{updated.title}' to the new time."
+
+    @function_tool
+    async def delete_calendar_event(event_title: str) -> str:
+        """Delete an existing calendar event permanently, matching it by title.
+
+        Args:
+            event_title: The title of the event to delete, or a close match.
+        """
+        async with SessionLocal() as session:
+            calendar_repo = CalendarEventRepository(session)
+            user_repo = UserRepository(session)
+            event = await _find_event(calendar_repo, user_id, event_title)
+            if event is None:
+                return f"I couldn't find an existing event matching '{event_title}'."
+
+            try:
+                await calendar_service.delete_event(
+                    user_id=user_id,
+                    event_id=str(event.id),
+                    calendar_repo=calendar_repo,
+                    user_repo=user_repo,
+                )
+            except CalendarNotConnectedError:
+                return "Your Google Calendar isn't connected, so I can't delete that."
+        return f"Deleted '{event.title}' from your calendar."
+
+    return [
+        list_tasks,
+        create_task,
+        complete_task,
+        edit_task,
+        delete_task,
+        book_calendar_event,
+        add_event_attendees,
+        list_schedule,
+        reschedule_calendar_event,
+        delete_calendar_event,
+    ]

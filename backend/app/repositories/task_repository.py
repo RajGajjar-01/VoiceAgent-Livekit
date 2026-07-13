@@ -27,6 +27,20 @@ class TaskRepository(BaseRepository):
         await self._session.refresh(task)
         return task
 
+    async def update(
+        self, task_id: str, user_id: str, title: str | None = None, duration_minutes: int | None = None
+    ) -> Task | None:
+        task = await self._session.get(Task, task_id)
+        if task is None or str(task.user_id) != user_id:
+            return None
+        if title is not None:
+            task.title = title
+        if duration_minutes is not None:
+            task.duration_minutes = duration_minutes
+        await self._session.commit()
+        await self._session.refresh(task)
+        return task
+
     async def delete(self, task_id: str, user_id: str) -> bool:
         task = await self._session.get(Task, task_id)
         if task is None or str(task.user_id) != user_id:

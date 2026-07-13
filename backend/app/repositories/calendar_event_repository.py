@@ -81,6 +81,16 @@ class CalendarEventRepository(BaseRepository):
         )
         return result.scalar_one_or_none()
 
+    async def update_time(self, event_id: str, start_time: datetime, end_time: datetime) -> CalendarEvent | None:
+        event = await self._session.get(CalendarEvent, event_id)
+        if event is None:
+            return None
+        event.start_time = start_time
+        event.end_time = end_time
+        await self._session.commit()
+        await self._session.refresh(event)
+        return event
+
     async def update_attendees(self, event_id: str, attendees: list[str]) -> CalendarEvent | None:
         event = await self._session.get(CalendarEvent, event_id)
         if event is None:
