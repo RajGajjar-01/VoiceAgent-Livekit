@@ -38,7 +38,7 @@ export default function ConversationTranscriptPage() {
   }, [conversationId])
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Conversation</h1>
         {messages[0] && (
