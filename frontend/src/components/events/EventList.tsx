@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ export default function EventList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null)
+  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
 
   async function handleDelete() {
     if (!deleteTarget) return
@@ -48,9 +50,7 @@ export default function EventList() {
       try {
         const res = await api.get<{ data: CalendarEvent[] }>('/calendar/events')
         if (cancelled) return
-        const now = Date.now()
-        const upcoming = res.data.data.filter((e) => new Date(e.start_time).getTime() >= now)
-        setEvents(upcoming)
+        setEvents(res.data.data)
       } catch {
         if (!cancelled) setError('Failed to load calendar events')
       } finally {
@@ -62,12 +62,29 @@ export default function EventList() {
     }
   }, [])
 
+  const now = Date.now()
+  const visibleEvents = events
+    .filter((e) =>
+      tab === 'upcoming' ? new Date(e.start_time).getTime() >= now : new Date(e.start_time).getTime() < now,
+    )
+    .sort((a, b) =>
+      tab === 'upcoming'
+        ? new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+        : new Date(b.start_time).getTime() - new Date(a.start_time).getTime(),
+    )
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex items-center gap-2">
-          <CalendarClock className="size-4" /> Upcoming events
+          <CalendarClock className="size-4" /> {tab === 'upcoming' ? 'Upcoming events' : 'Past events'}
         </CardTitle>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as 'upcoming' | 'past')}>
+          <TabsList>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="past">Past</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {loading && (
@@ -79,13 +96,15 @@ export default function EventList() {
 
         {!loading && error && <p className="text-sm text-destructive">{error}</p>}
 
-        {!loading && !error && events.length === 0 && (
-          <p className="text-sm text-muted-foreground">No upcoming events.</p>
+        {!loading && !error && visibleEvents.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            {tab === 'upcoming' ? 'No upcoming events.' : 'No past events.'}
+          </p>
         )}
 
-        {!loading && !error && events.length > 0 && (
+        {!loading && !error && visibleEvents.length > 0 && (
           <ul className="flex flex-col gap-4">
-            {events.map((event) => (
+            {visibleEvents.map((event) => (
               <li key={event.id} className="group flex flex-col gap-1.5 border-b pb-4 last:border-b-0 last:pb-0">
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-sm font-medium">{event.title}</span>

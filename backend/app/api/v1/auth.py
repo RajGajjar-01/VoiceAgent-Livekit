@@ -4,7 +4,7 @@ from typing import Literal
 import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from jwt import PyJWTError
+from jwt import ExpiredSignatureError, PyJWTError
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user_id, get_user_repository
@@ -97,13 +97,26 @@ async def google_callback(
 async def refresh(request: Request) -> JSONResponse:
     token = request.cookies.get("refresh_token")
     if not token:
-        logger.info("refresh_failed", reason="no_refresh_cookie")
+        # The refresh_token cookie is scoped to path=/api/v1/auth/refresh, so
+        # this fires if the cookie was never set (no login), expired past its
+        # REFRESH_TOKEN_EXPIRY_DAYS lifetime, got cleared by the browser, or
+        # — the classic footgun — COOKIE_SECURE/SameSite is misconfigured for
+        # how frontend and backend are actually deployed (see README) and the
+        # cookie was silently never stored or never sent cross-site at all.
+        logger.info(
+            "refresh_failed",
+            reason="no_refresh_cookie",
+            had_access_cookie=bool(request.cookies.get("access_token")),
+        )
         return error_response(401, "NOT_AUTHENTICATED", "Not authenticated")
     try:
         payload = verify_refresh_token(token)
-    except PyJWTError:
-        logger.info("refresh_failed", reason="invalid_or_expired_token")
-        return error_response(401, "TOKEN_EXPIRED", "Invalid or expired refresh token")
+    except ExpiredSignatureError:
+        logger.info("refresh_failed", reason="refresh_token_expired")
+        return error_response(401, "TOKEN_EXPIRED", "Refresh token expired")
+    except PyJWTError as e:
+        logger.warning("refresh_failed", reason="refresh_token_invalid", detail=str(e))
+        return error_response(401, "TOKEN_INVALID", "Invalid refresh token")
 
     user_id = str(payload["sub"])
     access_token = create_access_token(user_id=user_id)

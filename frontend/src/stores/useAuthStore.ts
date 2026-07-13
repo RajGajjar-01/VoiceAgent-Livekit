@@ -32,7 +32,8 @@ export const useAuthStore = create<AuthState & AuthActions>((set) => {
       try {
         const res = await api.get<{ data: AuthUser }>('/auth/me')
         set({ user: res.data.data, loading: false })
-      } catch {
+      } catch (err) {
+        console.warn('[auth] initialize failed, treating as logged out', err)
         set({ user: null, loading: false })
       }
     },
