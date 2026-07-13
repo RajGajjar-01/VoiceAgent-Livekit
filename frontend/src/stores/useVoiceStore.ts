@@ -1,4 +1,5 @@
 import { Room, RoomEvent, type Participant } from 'livekit-client'
+import { toast } from 'sonner'
 import { create } from 'zustand'
 import { fetchLiveKitToken } from '@/lib/livekit'
 
@@ -63,6 +64,19 @@ export const useVoiceStore = create<VoiceState & VoiceActions>((set, get) => ({
 
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
         set({ agentSpeaking: speakers.some((p) => !p.isLocal) })
+      })
+
+      // The worker runs as a separate LiveKit agent process with no HTTP
+      // channel back to the browser, so it reports things like "the LLM
+      // rate limit was exhausted" over the room's data channel instead.
+      room.on(RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
+        if (topic !== 'agent-error') return
+        try {
+          const { message } = JSON.parse(new TextDecoder().decode(payload)) as { message?: string }
+          if (message) toast.error(message)
+        } catch {
+          // Malformed payload — nothing sensible to show the user.
+        }
       })
 
       await room.connect(url, token)
