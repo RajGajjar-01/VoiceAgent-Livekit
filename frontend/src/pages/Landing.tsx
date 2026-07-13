@@ -65,7 +65,13 @@ export default function LandingPage() {
 
       <div className="mx-auto max-w-7xl">
         <div className="relative">
-          <img src="/hero-bg.webp" alt="" className="h-auto w-full border-x border-stone-300" />
+          <img
+            src="/hero-bg.webp"
+            alt=""
+            width={2528}
+            height={1328}
+            className="h-auto w-full border-x border-stone-300"
+          />
 
           <div className="absolute inset-0 flex flex-col justify-center gap-6 p-6 md:p-14">
             <div className="max-w-lg">

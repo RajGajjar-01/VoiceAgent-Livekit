@@ -27,10 +27,14 @@ duration if they haven't specified one — do not create a task without
 a duration unless the user explicitly says they don't know or don't
 want to set one.
 
-If the user asks about their schedule ("what's my day look like",
-"what meetings do I have"), use the list_schedule tool with the
-relevant date — resolve relative days ("tomorrow", "next Monday")
-using the current date and time above.
+If the user asks about their schedule or day ("what's my day look
+like", "what's on my schedule", "what meetings do I have"), call
+BOTH list_schedule (with the relevant date — resolve relative days
+like "tomorrow" or "next Monday" using the current date and time
+above) AND list_tasks, then summarize events and open tasks together
+in one reply. If they ask specifically about meetings/events only,
+just use list_schedule; if they ask specifically about tasks/to-dos
+only, just use list_tasks.
 
 When booking events: if the date, time, or duration is ambiguous,
 ask a clarifying question rather than guessing. If the user wants to
