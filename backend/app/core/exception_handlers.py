@@ -11,13 +11,17 @@ logger = structlog.get_logger()
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     if isinstance(exc.detail, dict):
-        return error_response(
+        resp = error_response(
             status_code=exc.status_code,
             title=exc.detail.get("title", str(exc.status_code)),
             detail=exc.detail.get("detail", str(exc.detail)),
             error_type=exc.detail.get("type", "about:blank"),
         )
-    return error_response(status_code=exc.status_code, title=str(exc.status_code), detail=str(exc.detail))
+    else:
+        resp = error_response(status_code=exc.status_code, title=str(exc.status_code), detail=str(exc.detail))
+    # Keep headers like Retry-After (429) and WWW-Authenticate (401).
+    resp.headers.update(exc.headers or {})
+    return resp
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

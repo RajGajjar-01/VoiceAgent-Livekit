@@ -1,11 +1,10 @@
 import structlog
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from redis.asyncio import Redis
 from sqlalchemy import text
 
-from app.core.config import settings
 from app.core.database import engine
+from app.core.rate_limit import redis
 from app.core.response import success_response
 from app.schemas.common import SuccessResponse
 from app.schemas.health import LivenessData, ReadinessData
@@ -26,15 +25,12 @@ async def _check_postgres() -> str:
 
 
 async def _check_redis() -> str:
-    redis: Redis = Redis.from_url(settings.REDIS_URL)
     try:
         await redis.ping()
         return "healthy"
     except Exception:
         logger.warning("redis_health_check_failed", exc_info=True)
         return "unhealthy"
-    finally:
-        await redis.aclose()
 
 
 @router.get("/live", responses={200: {"model": SuccessResponse[LivenessData]}})

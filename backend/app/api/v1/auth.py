@@ -8,7 +8,7 @@ from jwt import ExpiredSignatureError, PyJWTError
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user_id, get_user_repository
-from app.core.rate_limit import limiter
+from app.core.rate_limit import rate_limit
 from app.core.response import error_response, success_response
 from app.core.security import create_access_token, verify_refresh_token
 from app.repositories.user_repository import UserRepository
@@ -61,8 +61,7 @@ async def google_login() -> RedirectResponse:
     return resp
 
 
-@router.get("/google/callback")
-@limiter.limit("10/minute")
+@router.get("/google/callback", dependencies=[Depends(rate_limit(10, 60))])
 async def google_callback(
     request: Request,
     code: str | None = None,
