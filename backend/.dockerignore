@@ -21,8 +21,6 @@ __pycache__/
 # Docker/VCS metadata not needed inside the image
 .git
 .gitignore
-Dockerfile
-.dockerignore
 docker-compose.yml
 README.md
 .python-version
