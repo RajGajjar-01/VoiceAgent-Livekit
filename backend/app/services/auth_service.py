@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
@@ -53,7 +54,9 @@ async def complete_google_login(code: str, user_repo: UserRepository) -> tuple[U
     token_resp.raise_for_status()
     tokens = token_resp.json()
 
-    id_payload = verify_google_id_token(tokens["id_token"])
+    # Sync call that fetches Google's certs over the network — run it off the
+    # event loop so a slow cert fetch doesn't stall every other request.
+    id_payload = await asyncio.to_thread(verify_google_id_token, tokens["id_token"])
 
     google_refresh_token = tokens.get("refresh_token")
     encrypted_google_refresh_token = encrypt_token(google_refresh_token) if google_refresh_token else None

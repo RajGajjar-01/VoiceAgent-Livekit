@@ -1,6 +1,7 @@
 # Static SPA on Cloudflare Workers. Deploy: VITE_API_URL=https://api.example.com pnpm build && npx wrangler deploy
 name = "voiceagent-frontend"
 compatibility_date = "2026-10-01"
+routes = [{ pattern = "voiceagent.rajgajjar.me", custom_domain = true }]
 
 [assets]
 directory = "./dist"

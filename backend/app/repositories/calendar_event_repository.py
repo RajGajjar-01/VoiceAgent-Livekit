@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.calendar_event import CalendarEvent
 from app.repositories.base import BaseRepository
@@ -60,26 +60,40 @@ class CalendarEventRepository(BaseRepository):
         window_start = start_time - timedelta(minutes=threshold_minutes)
         window_end = start_time + timedelta(minutes=threshold_minutes)
         result = await self._session.execute(
-            select(CalendarEvent).where(
+            select(CalendarEvent)
+            .where(
                 CalendarEvent.user_id == user_id,
                 CalendarEvent.title.ilike(title),
                 CalendarEvent.start_time >= window_start,
                 CalendarEvent.start_time <= window_end,
             )
+            .limit(1)
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def find_overlapping(
-        self, user_id: str, start_time: datetime, end_time: datetime
+        self, user_id: str, start_time: datetime, end_time: datetime, exclude_id: str | None = None
     ) -> CalendarEvent | None:
-        result = await self._session.execute(
-            select(CalendarEvent).where(
-                CalendarEvent.user_id == user_id,
-                CalendarEvent.start_time < end_time,
-                CalendarEvent.end_time > start_time,
-            )
+        query = select(CalendarEvent).where(
+            CalendarEvent.user_id == user_id,
+            CalendarEvent.start_time < end_time,
+            CalendarEvent.end_time > start_time,
         )
-        return result.scalar_one_or_none()
+        if exclude_id is not None:
+            query = query.where(CalendarEvent.id != exclude_id)
+        result = await self._session.execute(query.limit(1))
+        return result.scalars().first()
+
+    async def find_by_title(self, user_id: str, title: str) -> CalendarEvent | None:
+        """Matches an event by spoken title: exact (case-insensitive) match
+        first, else substring, latest start time breaking ties."""
+        result = await self._session.execute(
+            select(CalendarEvent)
+            .where(CalendarEvent.user_id == user_id, CalendarEvent.title.ilike(f"%{title}%"))
+            .order_by((func.lower(CalendarEvent.title) == title.lower()).desc(), CalendarEvent.start_time.desc())
+            .limit(1)
+        )
+        return result.scalars().first()
 
     async def update_time(self, event_id: str, start_time: datetime, end_time: datetime) -> CalendarEvent | None:
         event = await self._session.get(CalendarEvent, event_id)

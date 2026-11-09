@@ -41,10 +41,15 @@ export const useVoiceStore = create<VoiceState & VoiceActions>((set, get) => ({
 
     try {
       const { token, url } = await fetchLiveKitToken()
+      // disconnect() during the token fetch cancels the call.
+      if (get().status !== 'connecting') return
+      // Store the room before connecting so disconnect() can abort a call
+      // that is still connecting instead of leaking it in the background.
       const room = new Room()
+      set({ room })
 
       room.on(RoomEvent.Disconnected, () => {
-        set({ status: 'idle', room: null, agentSpeaking: false })
+        if (get().room === room) set({ status: 'idle', room: null, agentSpeaking: false })
       })
 
       // STT segments arrive as interim updates that get refined until
@@ -81,17 +86,22 @@ export const useVoiceStore = create<VoiceState & VoiceActions>((set, get) => ({
 
       await room.connect(url, token)
       await room.localParticipant.setMicrophoneEnabled(true)
+      if (get().room !== room) return
 
-      set({ status: 'connected', room, muted: false })
+      set({ status: 'connected', muted: false })
     } catch (err) {
-      set({ status: 'error', error: err instanceof Error ? err.message : 'Failed to connect' })
+      if (get().status !== 'connecting') return
+      // e.g. mic permission denied after the room connected — don't leave it open.
+      const { room } = get()
+      set({ status: 'error', room: null, error: err instanceof Error ? err.message : 'Failed to connect' })
+      await room?.disconnect()
     }
   },
 
   disconnect: async () => {
     const { room } = get()
-    if (room) await room.disconnect()
     set({ status: 'idle', room: null, muted: false, agentSpeaking: false })
+    await room?.disconnect()
   },
 
   toggleMute: async () => {

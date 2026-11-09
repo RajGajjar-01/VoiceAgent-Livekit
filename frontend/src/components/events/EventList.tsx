@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { CalendarClock, ExternalLink, Trash2, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,7 +41,8 @@ export default function EventList() {
     try {
       await api.delete(`/calendar/events/${target.id}`)
     } catch {
-      setEvents((prev) => [...prev])
+      setEvents((prev) => [...prev, target])
+      toast.error('Failed to delete event')
     }
   }
 
@@ -120,7 +122,7 @@ export default function EventList() {
                       </a>
                     )}
                     <button
-                      className="opacity-0 transition-opacity group-hover:opacity-100"
+                      className="transition-opacity focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
                       onClick={() => setDeleteTarget(event)}
                       aria-label={`Delete "${event.title}"`}
                     >

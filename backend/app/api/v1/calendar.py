@@ -41,7 +41,7 @@ async def delete_calendar_event(
     event_id: str,
     user_id: str = Depends(get_current_user_id),
     calendar_repo: CalendarEventRepository = Depends(get_calendar_event_repository),
-) -> JSONResponse:
+) -> Response:
     deleted = await calendar_repo.delete(event_id, user_id)
     if not deleted:
         return error_response(404, "EVENT_NOT_FOUND", "Event not found")

@@ -72,9 +72,9 @@ export default function ConversationsNavList() {
     try {
       await api.delete(`/conversations/${deleteTarget.id}`)
       setConversations((prev) => prev.filter((c) => c.id !== deleteTarget.id))
-      // If the user was viewing the deleted conversation, send them home
+      // If the user was viewing the deleted conversation, send them back to the app
       if (conversationId === deleteTarget.id) {
-        navigate('/')
+        void navigate('/voice')
       }
       setDeleteTarget(null)
     } catch {

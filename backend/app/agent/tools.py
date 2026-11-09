@@ -3,7 +3,6 @@ from datetime import date, datetime
 from livekit.agents.llm import Tool, Toolset, function_tool
 
 from app.core.database import SessionLocal
-from app.models.calendar_event import CalendarEvent
 from app.repositories.calendar_event_repository import CalendarEventRepository
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
@@ -11,23 +10,7 @@ from app.services import calendar_service
 from app.services.calendar_service import CalendarNotConnectedError
 
 
-async def _find_event(calendar_repo: CalendarEventRepository, user_id: str, title: str) -> CalendarEvent | None:
-    """Matches an existing event by title — voice users can't supply an event
-    id, and spoken titles rarely come through transcription exactly. Prefers
-    an exact (case-insensitive) match, falling back to substring, and picks
-    the most recently created match when several fit."""
-    events = await calendar_repo.list_for_user(user_id)
-    matches = [e for e in events if e.title.lower() == title.lower()]
-    if not matches:
-        matches = [e for e in events if title.lower() in e.title.lower()]
-    return matches[-1] if matches else None
-
-
 def build_tools(user_id: str) -> list[Tool | Toolset]:
-    """Builds the set of tools available to the agent for one conversation,
-    each bound to this user via closure. The worker runs outside FastAPI's
-    request/response cycle, so each tool opens its own short-lived DB
-    session rather than sharing one across the whole conversation."""
 
     @function_tool
     async def list_tasks() -> str:
@@ -157,13 +140,16 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
             )
             if existing is not None:
                 if attendee_emails:
-                    updated = await calendar_service.add_attendees(
-                        user_id=user_id,
-                        event_id=str(existing.id),
-                        attendee_emails=attendee_emails,
-                        calendar_repo=calendar_repo,
-                        user_repo=user_repo,
-                    )
+                    try:
+                        updated = await calendar_service.add_attendees(
+                            user_id=user_id,
+                            event_id=str(existing.id),
+                            attendee_emails=attendee_emails,
+                            calendar_repo=calendar_repo,
+                            user_repo=user_repo,
+                        )
+                    except CalendarNotConnectedError:
+                        return "Your Google Calendar isn't connected, so I can't update that event."
                     return (
                         f"Added {', '.join(attendee_emails)} to '{updated.title}' "
                         f"(already booked at that time)."
@@ -216,7 +202,7 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
         async with SessionLocal() as session:
             calendar_repo = CalendarEventRepository(session)
             user_repo = UserRepository(session)
-            event = await _find_event(calendar_repo, user_id, event_title)
+            event = await calendar_repo.find_by_title(user_id, event_title)
             if event is None:
                 return f"I couldn't find an existing event matching '{event_title}'."
 
@@ -284,12 +270,12 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
         async with SessionLocal() as session:
             calendar_repo = CalendarEventRepository(session)
             user_repo = UserRepository(session)
-            event = await _find_event(calendar_repo, user_id, event_title)
+            event = await calendar_repo.find_by_title(user_id, event_title)
             if event is None:
                 return f"I couldn't find an existing event matching '{event_title}'."
 
-            overlapping = await calendar_repo.find_overlapping(user_id, new_start, new_end)
-            if overlapping is not None and str(overlapping.id) != str(event.id):
+            overlapping = await calendar_repo.find_overlapping(user_id, new_start, new_end, exclude_id=str(event.id))
+            if overlapping is not None:
                 return (
                     f"You already have '{overlapping.title}' on your calendar at that time "
                     f"— I can't reschedule '{event.title}' without overlapping."
@@ -318,7 +304,7 @@ def build_tools(user_id: str) -> list[Tool | Toolset]:
         async with SessionLocal() as session:
             calendar_repo = CalendarEventRepository(session)
             user_repo = UserRepository(session)
-            event = await _find_event(calendar_repo, user_id, event_title)
+            event = await calendar_repo.find_by_title(user_id, event_title)
             if event is None:
                 return f"I couldn't find an existing event matching '{event_title}'."
 

@@ -64,7 +64,7 @@ async def delete_task(
     task_id: str,
     user_id: str = Depends(get_current_user_id),
     task_repo: TaskRepository = Depends(get_task_repository),
-) -> JSONResponse:
+) -> Response:
     deleted = await task_repo.delete(task_id, user_id)
     if not deleted:
         return error_response(404, "TASK_NOT_FOUND", "Task not found")

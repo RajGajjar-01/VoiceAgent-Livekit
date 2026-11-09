@@ -15,6 +15,19 @@ _CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary
 _EXPIRY_SKEW_SECONDS = 60
 
 
+# Shared across calls so each voice tool call reuses the pooled TLS connection
+# to Google instead of paying a fresh handshake. Created lazily so it binds to
+# whichever event loop (API server or agent job process) first uses it.
+_client: httpx.AsyncClient | None = None
+
+
+def _http() -> httpx.AsyncClient:
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(timeout=10)
+    return _client
+
+
 class CalendarNotConnectedError(Exception):
     """Raised when the user has no stored Google refresh token — either they
     never granted the calendar.events scope, or Google revoked it."""
@@ -23,16 +36,15 @@ class CalendarNotConnectedError(Exception):
 async def _refresh_google_access_token(refresh_token: str) -> tuple[str, datetime]:
     """Same raw-httpx call style as auth_service.complete_google_login —
     this repo doesn't use google-api-python-client anywhere."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            _GOOGLE_TOKEN_URL,
-            data={
-                "client_id": settings.GOOGLE_CLIENT_ID,
-                "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                "refresh_token": refresh_token,
-                "grant_type": "refresh_token",
-            },
-        )
+    resp = await _http().post(
+        _GOOGLE_TOKEN_URL,
+        data={
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        },
+    )
     resp.raise_for_status()
     data = resp.json()
     expiry = datetime.now(UTC) + timedelta(seconds=data["expires_in"])
@@ -65,14 +77,24 @@ async def _post_calendar_event(access_token: str, payload: dict[str, Any]) -> di
     """Isolated as its own function so tests can monkeypatch this one call
     wholesale, mirroring the verify_oauth2_token boundary-patch convention
     already used in test_security.py."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            _CALENDAR_EVENTS_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
-            json=payload,
-        )
+    resp = await _http().post(_CALENDAR_EVENTS_URL, headers={"Authorization": f"Bearer {access_token}"}, json=payload)
     resp.raise_for_status()
     return dict(resp.json())
+
+
+async def _load_owned_event(
+    user_id: str, event_id: str, calendar_repo: CalendarEventRepository, user_repo: UserRepository
+) -> tuple[CalendarEvent, str]:
+    """Returns the user's event plus a valid Google access token for it."""
+    user = await user_repo.get_by_id(user_id)
+    if user is None:
+        raise ValueError(f"User {user_id} not found")
+
+    event = await calendar_repo.get(event_id)
+    if event is None or str(event.user_id) != user_id:
+        raise ValueError(f"Event {event_id} not found for user {user_id}")
+
+    return event, await _ensure_valid_access_token(user, user_repo)
 
 
 async def create_event(
@@ -117,22 +139,12 @@ async def reschedule_event(
     calendar_repo: CalendarEventRepository,
     user_repo: UserRepository,
 ) -> CalendarEvent:
-    user = await user_repo.get_by_id(user_id)
-    if user is None:
-        raise ValueError(f"User {user_id} not found")
-
-    event = await calendar_repo.get(event_id)
-    if event is None or str(event.user_id) != user_id:
-        raise ValueError(f"Event {event_id} not found for user {user_id}")
-
-    access_token = await _ensure_valid_access_token(user, user_repo)
-    google_url = f"{_CALENDAR_EVENTS_URL}/{event.google_event_id}"
-    async with httpx.AsyncClient() as client:
-        resp = await client.patch(
-            google_url,
-            headers={"Authorization": f"Bearer {access_token}"},
-            json={"start": {"dateTime": start.isoformat()}, "end": {"dateTime": end.isoformat()}},
-        )
+    event, access_token = await _load_owned_event(user_id, event_id, calendar_repo, user_repo)
+    resp = await _http().patch(
+        f"{_CALENDAR_EVENTS_URL}/{event.google_event_id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"start": {"dateTime": start.isoformat()}, "end": {"dateTime": end.isoformat()}},
+    )
     resp.raise_for_status()
 
     updated_event = await calendar_repo.update_time(event_id, start, end)
@@ -147,18 +159,10 @@ async def delete_event(
     calendar_repo: CalendarEventRepository,
     user_repo: UserRepository,
 ) -> None:
-    user = await user_repo.get_by_id(user_id)
-    if user is None:
-        raise ValueError(f"User {user_id} not found")
-
-    event = await calendar_repo.get(event_id)
-    if event is None or str(event.user_id) != user_id:
-        raise ValueError(f"Event {event_id} not found for user {user_id}")
-
-    access_token = await _ensure_valid_access_token(user, user_repo)
-    google_url = f"{_CALENDAR_EVENTS_URL}/{event.google_event_id}"
-    async with httpx.AsyncClient() as client:
-        resp = await client.delete(google_url, headers={"Authorization": f"Bearer {access_token}"})
+    event, access_token = await _load_owned_event(user_id, event_id, calendar_repo, user_repo)
+    resp = await _http().delete(
+        f"{_CALENDAR_EVENTS_URL}/{event.google_event_id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
     if resp.status_code not in (200, 204, 404):
         resp.raise_for_status()
 
@@ -174,26 +178,16 @@ async def add_attendees(
     calendar_repo: CalendarEventRepository,
     user_repo: UserRepository,
 ) -> CalendarEvent:
-    user = await user_repo.get_by_id(user_id)
-    if user is None:
-        raise ValueError(f"User {user_id} not found")
-
-    event = await calendar_repo.get(event_id)
-    if event is None or str(event.user_id) != user_id:
-        raise ValueError(f"Event {event_id} not found for user {user_id}")
-
-    access_token = await _ensure_valid_access_token(user, user_repo)
-    google_url = f"https://www.googleapis.com/calendar/v3/calendars/primary/events/{event.google_event_id}"
+    event, access_token = await _load_owned_event(user_id, event_id, calendar_repo, user_repo)
     existing_attendees = [{"email": e} for e in (event.attendees or [])]
     new_attendees = [{"email": e} for e in attendee_emails if e not in (event.attendees or [])]
     updated_attendees = existing_attendees + new_attendees
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.patch(
-            google_url,
-            headers={"Authorization": f"Bearer {access_token}"},
-            json={"attendees": updated_attendees},
-        )
+    resp = await _http().patch(
+        f"{_CALENDAR_EVENTS_URL}/{event.google_event_id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"attendees": updated_attendees},
+    )
     resp.raise_for_status()
     google_data = dict(resp.json())
     response_attendees = [a["email"] for a in google_data.get("attendees", []) if "email" in a]

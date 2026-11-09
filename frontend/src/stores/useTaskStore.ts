@@ -1,3 +1,4 @@
+import { toast } from 'sonner'
 import { create } from 'zustand'
 import { api } from '@/lib/api'
 
@@ -49,15 +50,18 @@ export const useTaskStore = create<TaskState & TaskActions>((set, get) => ({
       await api.patch<{ data: Task }>(`/tasks/${id}/status`, { status })
     } catch {
       if (prev) set({ tasks: get().tasks.map((t) => (t.id === id ? prev : t)) })
+      toast.error('Failed to update task')
     }
   },
 
   remove: async (id: string) => {
-    set({ tasks: get().tasks.filter((t) => t.id !== id) })
+    const prev = get().tasks
+    set({ tasks: prev.filter((t) => t.id !== id) })
     try {
       await api.delete(`/tasks/${id}`)
     } catch {
-      set({ tasks: get().tasks })
+      set({ tasks: prev })
+      toast.error('Failed to delete task')
     }
   },
 }))

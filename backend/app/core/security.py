@@ -1,4 +1,5 @@
 import time
+from functools import cache
 from typing import Any, Literal
 
 import jwt
@@ -46,6 +47,7 @@ def verify_google_id_token(id_token_str: str) -> dict[str, Any]:
     return payload
 
 
+@cache
 def _fernet() -> Fernet:
     return Fernet(settings.REFRESH_TOKEN_ENCRYPTION_KEY.encode())
 

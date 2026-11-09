@@ -1,14 +1,16 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { Toaster } from '@/components/ui/sonner'
-import DashboardLayout from '@/components/DashboardLayout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import LandingPage from '@/pages/Landing'
-import TasksPage from '@/pages/Tasks'
-import EventsPage from '@/pages/Events'
-import ConversationTranscriptPage from '@/pages/ConversationTranscript'
-import VoiceAssistantPage from '@/pages/VoiceAssistant'
 import NotFoundPage from '@/pages/NotFound'
+
+// Everything behind login (incl. livekit-client) is split out of the landing bundle.
+const DashboardLayout = lazy(() => import('@/components/DashboardLayout'))
+const TasksPage = lazy(() => import('@/pages/Tasks'))
+const EventsPage = lazy(() => import('@/pages/Events'))
+const ConversationTranscriptPage = lazy(() => import('@/pages/ConversationTranscript'))
+const VoiceAssistantPage = lazy(() => import('@/pages/VoiceAssistant'))
 import { useAuthStore } from '@/stores/useAuthStore'
 
 export default function App() {
@@ -21,6 +23,7 @@ export default function App() {
   return (
     <>
       <Toaster richColors closeButton position="top-right" />
+      <Suspense>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route element={<ProtectedRoute />}>
@@ -34,6 +37,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </Suspense>
     </>
   )
 }

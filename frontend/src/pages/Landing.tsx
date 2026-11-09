@@ -42,7 +42,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b border-border border-stone-300">
+      <div className="border-b border-stone-300">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-8 border-x border-stone-300">
           <span className="font-heading text-base font-semibold sm:text-lg">Voice Agent</span>
           {user ? (
@@ -79,6 +79,7 @@ export default function LandingPage() {
             alt=""
             width={2528}
             height={1328}
+            fetchPriority="high"
             className="h-auto w-full border-x border-stone-300"
           />
 

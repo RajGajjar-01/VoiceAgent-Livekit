@@ -57,7 +57,7 @@ async def delete_conversation(
     conversation_id: str,
     user_id: str = Depends(get_current_user_id),
     conversation_repo: ConversationRepository = Depends(get_conversation_repository),
-) -> JSONResponse:
+) -> Response:
     deleted = await conversation_repo.delete(conversation_id, user_id)
     if not deleted:
         return error_response(404, "CONVERSATION_NOT_FOUND", "Conversation not found")

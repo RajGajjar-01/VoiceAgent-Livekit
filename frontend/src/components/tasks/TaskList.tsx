@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { CheckSquare, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,8 @@ export default function TaskList() {
       await add(trimmed, dur)
       setTitle('')
       setDuration('')
+    } catch {
+      toast.error('Failed to add task')
     } finally {
       setSubmitting(false)
     }
@@ -135,7 +138,7 @@ export default function TaskList() {
                   </TableCell>
                   <TableCell>
                     <button
-                      className="opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+                      className="transition-opacity hover:text-destructive focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
                       onClick={() => void remove(task.id)}
                       aria-label={`Delete "${task.title}"`}
                     >

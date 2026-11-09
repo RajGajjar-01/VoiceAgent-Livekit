@@ -4,7 +4,16 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from livekit.agents import Agent, AgentSession, APIStatusError, ErrorEvent, JobContext, WorkerOptions, cli
+from livekit.agents import (
+    Agent,
+    AgentSession,
+    APIStatusError,
+    ErrorEvent,
+    JobContext,
+    JobProcess,
+    WorkerOptions,
+    cli,
+)
 from livekit.agents.llm import LLM, AvailabilityChangedEvent, FallbackAdapter, LLMError
 from livekit.plugins import deepgram, elevenlabs, openai, silero
 
@@ -81,6 +90,12 @@ def _build_llm(health: _LLMHealth) -> LLM[Any]:
     return adapter
 
 
+def prewarm(proc: JobProcess) -> None:
+    # Silero's ONNX model load is blocking and slow; doing it once per idle
+    # process keeps it off the call-answer path of every job.
+    proc.userdata["vad"] = silero.VAD.load()
+
+
 async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect()
 
@@ -105,7 +120,7 @@ async def entrypoint(ctx: JobContext) -> None:
         stt=deepgram.STT(api_key=settings.DEEPGRAM_API_KEY),
         llm=_build_llm(llm_health),
         tts=tts,
-        vad=silero.VAD.load(),
+        vad=ctx.proc.userdata["vad"],
     )
     register_persistence(session, conversation_id)
 
@@ -138,6 +153,7 @@ if __name__ == "__main__":
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
+            prewarm_fnc=prewarm,
             ws_url=settings.LIVEKIT_URL,
             api_key=settings.LIVEKIT_API_KEY,
             api_secret=settings.LIVEKIT_API_SECRET,

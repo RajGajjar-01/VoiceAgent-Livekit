@@ -1,3 +1,5 @@
+import asyncio
+
 import structlog
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -40,8 +42,7 @@ async def liveness() -> JSONResponse:
 
 @router.get("/health", responses={200: {"model": SuccessResponse[ReadinessData]}})
 async def readiness() -> JSONResponse:
-    postgres = await _check_postgres()
-    redis = await _check_redis()
+    postgres, redis = await asyncio.gather(_check_postgres(), _check_redis())
     overall = "healthy" if postgres == "healthy" and redis == "healthy" else "unhealthy"
     return success_response(
         {"status": overall, "postgres": postgres, "redis": redis},
